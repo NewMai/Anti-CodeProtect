@@ -1,4 +1,7 @@
 
+# This file is used to run in Linux x64 system with pwntools installed.
+# And you need to change the base address variable (g_baseAddr) before using it.
+
 import pwn
 pwn.context.arch = "x86_64"  # For 64-bit architecture
 g_baseAddr = 0x400000

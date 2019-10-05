@@ -14,6 +14,8 @@ import idaapi
 # import ida_bytes
 
 
+# Segment operation examples: https://www.programcreek.com/python/example/88326/idautils.Segments
+
 def testFunc():
     ea = ScreenEA()
     print "EA:" , hex(ea)
@@ -27,6 +29,60 @@ def testFunc():
     # patch_byte(ea, byte)  # apply in IDA 7.0 and later
     PatchByte(ea, byte)
     print "patched"
+
+
+class SegmInfo():
+    def __init__(self):
+        self.m_name = ""
+        self.m_startAddr = 0
+        self.m_endAddr = 0
+        self.m_className = ""
+
+def getAllSegments():
+    segs = list()
+    si = SegmInfo()
+    i = 0
+    for ea in idautils.Segments():
+        seg = idaapi.getseg(ea)
+        si.m_name = idc.SegName(ea)
+        si.m_startAddr = int(idc.SegStart(ea))
+        si.m_endAddr = int(idc.SegEnd(ea))
+        si.m_className = idaapi.get_segm_class(seg)
+        segs.append(si)
+        print "[%d]" % (i)
+        print "Segment name: %s" % (si.m_name)
+        print "Segment start address: 0x%08x" % (si.m_startAddr)
+        print "Segment end address: 0x%08x" % (si.m_endAddr)
+        print "Segment class name: %s" % (si.m_className)
+        i += 1
+    return segs
+
+
+def addSegmentAtLast(segs, segSize):
+    si = SegmInfo()
+    si.m_startAddr = segs[-1].m_endAddr
+    si.m_endAddr = si.m_startAddr + segSize
+    si.m_name = "Rewrite segment"
+    si.m_className = "Rewrite segment class"
+
+    # https://www.hex-rays.com/products/ida/support/idapython_docs/
+    # startea - linear address of the start of the segment
+    # endea - linear address of the end of the segment this address will not belong to the segment 'endea' should be higher than 'startea'
+    # base - base paragraph or selector of the segment. a paragraph is 16byte memory chunk. If a selector value is specified, the selector should be already defined.
+    # use32 - 0: 16bit segment, 1: 32bit segment, 2: 64bit segment
+    # align - segment alignment. see below for alignment values
+    # comb - segment combination. see below for combination values.
+    ret = idc.AddSeg(si.m_startAddr, si.m_endAddr, 0, 2, 0, 0)
+    if ret == False:
+        print "Create segment failed"
+        return None
+
+    # Reset this segment
+    byte = 0x90
+    for ea in range(si.m_startAddr, si.m_endAddr, 1):
+        PatchByte(ea, byte)
+
+    return si
 
 def getAddressAndMachineCode(line):
     addr = None
@@ -47,7 +103,7 @@ def getAddressAndMachineCode(line):
     return (addr, mcode)
 
 
-def rewriteToBinaryFile(srcFile):
+def rewriteToBinaryFile(srcFile, startAddr):
     addr = None
     mcode = None
     i = 0
@@ -60,14 +116,22 @@ def rewriteToBinaryFile(srcFile):
             (addr, mcode) = getAddressAndMachineCode(line)
             if addr == None:
                 continue
+            addr += 0x41960 # For debug
             print "[%d]Patching address 0x%08X" % (j, addr)
             j += 1
             for i in range(0, len(mcode)):
                 byte = mcode[i]
-                # print "[%d]Patching address 0x%08X by 0x%02x" % (i, addr, byte)
-                PatchByte(ea + i, byte)
+                ea = addr + i
+                # print "[%d]Patching address 0x%08X by 0x%02x" % (i, ea, byte)
+                ret = PatchByte(ea, byte)
+                if ret == False:
+                    x = Byte(ea)
+                    if x == byte:  # The same byte will patch failed
+                        continue
+                    print "Error when patching at address 0x%08X with byte 0x%02x" % (ea, byte)
+                    return None
             (addr, mcode) = None, None
-            # if j > 3:
+            # if j > 30:
             #     break  # Debug
         pass
     pass
@@ -76,11 +140,19 @@ def rewriteToBinaryFile(srcFile):
 def main():
 
     srcFile = "bblInstEx.log"
+    startAddr = 0
     print ""
     print "Patching..."
 
     # testFunc()
-    rewriteToBinaryFile(srcFile)
+
+
+
+    segs = getAllSegments()
+    si = addSegmentAtLast(segs, 0x10000)
+
+
+    rewriteToBinaryFile(srcFile, startAddr)
 
     print "Finished."
     print ""

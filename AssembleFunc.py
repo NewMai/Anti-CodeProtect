@@ -4,6 +4,7 @@ import os
 
 
 g_ErrFile = open("error.log", "a+")
+g_ErrFile.write("\r\n")
 
 # Including all info of a basic block
 class BlockInfo():
@@ -14,6 +15,12 @@ class BlockInfo():
         self.m_endAddr = 0
         self.m_block = list()
         self.m_label = ""
+
+# One FunctionInfo represents a function
+class FunctionInfo():
+    def __init__(self):
+        self.m_funcName = ""
+        self.m_bis = list()  # BlockInfos
 
 
 # Get opcode from a line
@@ -197,9 +204,14 @@ def collectLabels(blocks, calls):
     return lbls
 
 # Normalize the function calls and labels
+# And return a set of functions
 def processFuncCallAndLabels(blocks):
     addr = 0
     len1 = len(blocks)
+    funcs = list()
+    isFirstFunc = True
+    funcStatus = 0
+    func = FunctionInfo()
     line = ""
     len2 = 0
     calls = collectFuncCalls(blocks)
@@ -207,9 +219,19 @@ def processFuncCallAndLabels(blocks):
     for i in range(0, len1):
         len2 = len(blocks[i].m_block)
         addr = blocks[i].m_startAddr;
-        if addr in calls:
+        if addr in calls or isFirstFunc == True:
+            if isFirstFunc == True:
+                pass
+            else:
+                funcs.append(func)
+            func = FunctionInfo()  # Clear previous block, start a new function
+            func.m_funcName = "sub_%x" % (addr)
+            funcStatus = 1  # Function start
+            isFirstFunc = False
             blocks[i].m_isFunc = True
             blocks[i].m_label = "sub_%x PROC PUBLIC" % (addr)
+        else:
+            funcStatus = 2  # Function body
         for j in range(0, len2):
             line = blocks[i].m_block[j]
             if True == isExplicitFuncCall(line):
@@ -224,7 +246,8 @@ def processFuncCallAndLabels(blocks):
                 t = int(arr[1].strip(), 16)
                 x = "%s loc_%x" % (arr[0], t)
                 blocks[i].m_block[j] = x
-    pass
+        func.m_bis.append(blocks[i])
+    return funcs
 
 # Recode all the instructions
 def recodeInstructions(blocks):
@@ -254,38 +277,30 @@ def assembleFunc(fileName):
     blocks.sort(key = lambda b:b.m_startAddr)
 
     # Normalize function call
-    processFuncCallAndLabels(blocks)
+    funcs = processFuncCallAndLabels(blocks)
 
     # Recode address in instructions
     recodeInstructions(blocks)
 
     addAsmFileHeader()
-    for i in range(0, len(blocks)):
-        bi = blocks[i]
-        block = bi.m_block
-
-        if i > 0 and bi.m_isFunc == True:
-            print "%s ENDP" % (preFuncName)
-            print ""
-        if bi.m_isFunc == True:
-            preFuncName = bi.m_label.split(" ")[0]
-            print "%s" % (bi.m_label)
-        else:
-            print "%s:" % (bi.m_label)
-        for j in range(0, len(block)):
-            line = block[j]
-            ins = line
-            if "|" in line:
-                ins = "    %s" % (line.split("|")[1])
-            else:
-                ins = "    %s" % (line)
-            print ins
-            # if "ret" in block[j]:
-            #     print ""
-
-        if i > 0 and bi.m_isFunc == True:
-            print "%s ENDP" % (preFuncName)
-            print ""
+    for i in range(0, len(funcs)):
+        func = funcs[i]
+        print "%s PROC PUBLIC" % (func.m_funcName)
+        for j in range(0, len(func.m_bis)):
+            bi = func.m_bis[j]
+            block = bi.m_block
+            if j > 0:
+                 print "%s:" % (bi.m_label)
+            for k in range(0, len(block)):
+                line = block[k]
+                ins = line
+                if "|" in line:
+                    ins = "    %s" % (line.split("|")[1])
+                else:
+                    ins = "    %s" % (line)
+                print ins
+        print "%s ENDP" % (func.m_funcName)
+        print ""
     addAsmFileEnder()
     pass
 

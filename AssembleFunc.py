@@ -190,7 +190,7 @@ def collectFuncCallsFromIdaFile():
 def collectFuncCalls(blocks):
     global g_ErrFile
     calls = set()
-    calls = collectFuncCallsFromIdaFile()
+    # calls = collectFuncCallsFromIdaFile()
     line = ""
     data = BlockInfo()
     arrs = list()
@@ -252,16 +252,16 @@ def processFuncCallAndLabels(blocks):
         for j in range(0, len2):
             line = blocks[i].m_block[j]
             if True == isExplicitFuncCall(line):
-                arr = line.split("|")
-                arr = arr[1].split(" ")
-                t = int(arr[1].strip(), 16)
-                x = "%s sub_%x" % (arr[0], t)
+                arr1 = line.split("|")
+                arr2 = arr1[1].split(" ")
+                t = int(arr2[1].strip(), 16)
+                x = "%s|%s sub_%x" % (arr1[0], arr2[0], t)
                 blocks[i].m_block[j] = x
             elif True == isExplicitBranch(line):
-                arr = line.split("|")
-                arr = arr[1].split(" ")
-                t = int(arr[1].strip(), 16)
-                x = "%s loc_%x" % (arr[0], t)
+                arr1 = line.split("|")
+                arr2 = arr1[1].split(" ")
+                t = int(arr2[1].strip(), 16)
+                x = "%s|%s loc_%x" % (arr1[0], arr2[0], t)
                 blocks[i].m_block[j] = x
         func.m_bis.append(blocks[i])
     return funcs
@@ -311,11 +311,12 @@ def assembleFunc(fileName):
             for k in range(0, len(block)):
                 line = block[k]
                 ins = line
-                if "|" in line:
-                    ins = "    %s" % (line.split("|")[1])
-                else:
-                    ins = "    %s" % (line)
-                print ins
+                # if "|" in line:
+                #     ins = "    %s" % (line.split("|")[1])
+                # else:
+                #     ins = "    %s" % (line)
+                # print ins
+                print "    %s" % (ins)
         print "%s ENDP" % (func.m_funcName)
         print ""
     addAsmFileEnder()

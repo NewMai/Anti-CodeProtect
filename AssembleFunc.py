@@ -169,11 +169,28 @@ def addAsmFileEnder():
     print "END"
     print ""
 
+# Collect functions calls from ida log file
+def collectFuncCallsFromIdaFile():
+    calls = set()
+    idaFile = "ida.log"
+    if os.path.exists(idaFile) == True:
+        with open(idaFile, "r") as fr:
+            for line in fr:
+                line = line.strip() # Remove "\r\n"
+                arr = line.split(":")
+                t = arr[1].strip()
+                arr = t.split(" ")
+                for addr in arr:
+                    x = int(addr.strip(), 16)
+                    calls.add(x)
+    return calls
+
 # Collect all the function in this bblInst.log file from call instructions
 # Return a set of the functions' address
 def collectFuncCalls(blocks):
     global g_ErrFile
     calls = set()
+    calls = collectFuncCallsFromIdaFile()
     line = ""
     data = BlockInfo()
     arrs = list()

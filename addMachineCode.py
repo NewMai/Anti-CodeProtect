@@ -79,7 +79,7 @@ def getMachineCodeOfIns(bblInst_file, fileNameOut):
         pass
 
 
-
+# python addMachineCode.py 
 def main():
     fileName = "bblInst.log"
     fileNameOut = "bblInstEx.log"

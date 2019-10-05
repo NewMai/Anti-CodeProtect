@@ -42,7 +42,7 @@ def getAddressAndMachineCode(line):
         ta = arr[0]   # The first one is the address
         tb = arr[-1]  # The last one is the machine code
         addr = int(ta.strip(), 16)
-        mcode = bytearray.fromhex(tb)
+        mcode = bytearray.fromhex(tb)  # Covert "aabb0011" to '\xaa\xbb\x00\x11'
         break
     return (addr, mcode)
 
@@ -64,11 +64,11 @@ def rewriteToBinaryFile(srcFile):
             j += 1
             for i in range(0, len(mcode)):
                 byte = mcode[i]
+                # print "[%d]Patching address 0x%08X by 0x%02x" % (i, addr, byte)
                 PatchByte(ea + i, byte)
             (addr, mcode) = None, None
-            pass
-        if j > 3:
-            break  # Debug
+            # if j > 3:
+            #     break  # Debug
         pass
     pass
 
@@ -79,8 +79,8 @@ def main():
     print ""
     print "Patching..."
 
-    testFunc()
-    # rewriteToBinaryFile(srcFile)
+    # testFunc()
+    rewriteToBinaryFile(srcFile)
 
     print "Finished."
     print ""

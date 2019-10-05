@@ -1,0 +1,4 @@
+# https://blog.csdn.net/dfq12345/article/details/69870513
+
+# Ê¹ÓÃ VC++ ±àÒëÆ÷: ±àÒë
+ml64 /c asm.asm

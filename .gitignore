@@ -1,0 +1,8 @@
+
+*.asm
+*/
+.vscode/
+*.exe
+test*
+*.log
+

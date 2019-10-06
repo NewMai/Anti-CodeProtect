@@ -5,6 +5,9 @@
 import pwn
 pwn.context.arch = "x86_64"  # For 64-bit architecture
 g_baseAddr = 0x400000
+g_ErrLog = open("error.log", "a+")
+g_ErrLog.write("\r\n")
+
 
 
 def dealwithPtr(ins):
@@ -30,14 +33,63 @@ def dealwithPtr(ins):
         return ins
 
 
+def dealwithBranch(curAddr, ins):
+    global g_ErrLog
+    curInsSize = 2
+    additionInsSize = 4
+    arr = ins.split(" ")
+    if len(arr) != 2 or "j" != ins[0:1]:
+        return ins
+    destAddr = arr[1]
+    if "0x" != destAddr[0:2]:
+        return ins
+    curAddr = int(curAddr, 16)
+    destAddr = int(destAddr, 16)
+    offset = destAddr - curAddr - curInsSize
+    if offset < 0x100: # short jmp,  2 bytes of machine code
+        if offset < 0x80:
+            ins = "%s $+%d" % (arr[0], offset)
+        else: # offset < 0x100:
+            ins = "%s $-%d" % (arr[0], 0x100 - offset)
+    else:   # long jmp,  2+4 bytes of machine code
+        offset -= additionInsSize
+        if offset < 0x80000000:
+            ins = "%s $+%d" % (arr[0], offset)
+        else: # offset < 0x100000000:
+            ins = "%s $-%d" % (arr[0], 0x100 - offset)
+    return ins
+
+
+def dealwithCall(curAddr, ins):
+    global g_ErrLog
+    curInsSize = 5
+    arr = ins.split(" ")
+    if len(arr) != 2 or "call" != ins[0:4]:
+        return ins
+    destAddr = arr[1]
+    if "0x" != destAddr[0:2]:
+        return ins
+    curAddr = int(curAddr, 16)
+    destAddr = int(destAddr, 16)
+    offset = destAddr - curAddr - curInsSize
+    if offset < 0x80000000:
+        ins = "%s $+%d" % (arr[0], offset)
+    else:
+        ins = "%s $-%d" % (arr[0], 0x100000000 - offset)
+    return ins
+
+
 def getMachineCode(line):
     global g_baseAddr
     arr = line.split("|")
     addr = arr[0]
     ins = arr[1].lower()
     ins = dealwithPtr(ins)
+    ins = dealwithBranch(addr, ins)
+    ins = dealwithCall(addr, ins)
     try:
-        mcode = pwn.asm(ins, vma=g_baseAddr)
+        # mcode = pwn.asm(ins, vma=g_baseAddr)
+        mcode = pwn.asm(ins)
     except:
         if "nop" in ins and len(ins) > 3:
             mcode = b'\90'

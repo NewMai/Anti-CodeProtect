@@ -126,6 +126,7 @@ def rewriteToBinaryFile(srcFile, baseAddr):
     ea = 0
     byte = 0
     offset = 0
+    mcodeLen = 0
     isFirstOne = True
     with open(srcFile, "r") as fr:
         for line in fr:
@@ -139,7 +140,8 @@ def rewriteToBinaryFile(srcFile, baseAddr):
             addr2 = addr + offset
             print "[%d]Patching address 0x%08X, original address 0x%08X" % (j, addr2, addr)
             j += 1
-            for i in range(0, len(mcode)):
+            mcodeLen = len(mcode)
+            for i in range(0, mcodeLen):
                 byte = mcode[i]
                 ea = addr2 + i
                 # print "[%d]Patching address 0x%08X by 0x%02x" % (i, ea, byte)
@@ -151,6 +153,11 @@ def rewriteToBinaryFile(srcFile, baseAddr):
                     print "Error when patching at address 0x%08X with byte 0x%02x" % (ea, byte)
                     return None
             (addr, mcode) = None, None
+
+            # Re- make code of it
+            ret = MakeCode(addr2)
+            if ret != mcodeLen:
+                print "Make code result not equal to patched-byte's length."
             # if j > 30:
             #     break  # Debug
         pass
@@ -195,10 +202,10 @@ def main():
     if highAddr == 0:
         print "Failed in loading config file"
         return 0
-    codeSize = highAddr - lowAddr + 0x100
+    codeSize = highAddr - lowAddr + 0x2000
     segs = getAllSegments()
     si = addSegmentAtLast(segs, codeSize)
-    baseAddr = si.m_startAddr
+    baseAddr = si.m_startAddr + lowAddr % 0x1000
 
 
     rewriteToBinaryFile(srcFile, baseAddr)

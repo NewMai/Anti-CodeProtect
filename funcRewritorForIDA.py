@@ -133,6 +133,8 @@ def rewriteToBinaryFile(srcFile, baseAddr):
             line = line.strip()
             (addr, mcode) = getAddressAndMachineCode(line)
             if addr == None:
+                if line.startswith("sub_") == True:
+                    print "Patching function: %s" % (line.split(" ")[0])
                 continue
             if isFirstOne == True:
                 offset = baseAddr - addr
@@ -186,6 +188,16 @@ def loadConfigFromFile(cfgFile):
             g_ErrFile.write("Load config file failed!\r\n")
     return (lowAddr, highAddr)
 
+# Make code for this new sigment
+def makeCodeAgain(si):
+    ea = si.m_startAddr
+    while ea < si.m_endAddr:
+        ret = MakeCode(ea)
+        if ret == 0:
+            ea += 1
+        else:
+            ea += ret
+    pass
 
 def main():
 
@@ -209,6 +221,7 @@ def main():
 
 
     rewriteToBinaryFile(srcFile, baseAddr)
+    makeCodeAgain(si)
 
     print "Finished."
     print ""

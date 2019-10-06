@@ -133,7 +133,7 @@ def getMachineCodeOfIns(bblInst_file, fileNameOut):
                     fw.write(line+ "\r\n")
                 else:
                     mcode = getMachineCode(line)
-                    line = "%s|%s" % (line, mcode)
+                    line = "    %s|%s" % (line, mcode)
                     # print line
                     fw.write(line+ "\r\n")
         pass

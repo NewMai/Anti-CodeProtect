@@ -91,12 +91,15 @@ def getMachineCode(line):
     ins = dealwithCall(addr, ins)
     try:
         # mcode = pwn.asm(ins, vma=g_baseAddr)
-        mcode = pwn.asm(ins)
-    except:
         if "nop" in ins and len(ins) > 3:
+            # Unknown instruction, e.g. nop dword ptr [rax], eax
+            # For the reason that we initialize all code into nop instruction at 
+            #    the creation of a section
             mcode = b'\90'
         else:
-            raise RuntimeError("Unknow instruction for: %s" % ins)
+            mcode = pwn.asm(ins)
+    except:
+        raise RuntimeError("Unknow instruction for: %s" % ins)
     ret = ""
     for i in range(0, len(mcode)):
         x = mcode[i]
@@ -121,7 +124,10 @@ def getMachineCodeOfIns(bblInst_file, fileNameOut):
                 i += 1
                 if i % 100 == 0:
                     print i
-                line = line[0:-2]  # for linux
+
+                # line = line[0:-2]  # for linux
+                line = line.strip()
+
                 if len(line) <= 16 or "|" not in line:    # Nothing to do
                     # print line
                     fw.write(line+ "\r\n")
@@ -135,8 +141,8 @@ def getMachineCodeOfIns(bblInst_file, fileNameOut):
 
 # python addMachineCode.py 
 def main():
-    fileName = "bblInst.log"
-    fileNameOut = "bblInstEx.log"
+    fileName = "funcs.asm"
+    fileNameOut = "funcsEx.asm"
     print "Starting..."
     getMachineCodeOfIns(fileName, fileNameOut)
     print "Finished!"

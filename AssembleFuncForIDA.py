@@ -277,8 +277,18 @@ def recodeInstructions(blocks):
             blocks[i].m_block[j] = recodeHex(blocks[i].m_block[j])
     pass
 
+# Save address's range to config file
+def saveRangeToConfigFile(funcs, cfgFile):
+    lowAddr = funcs[0].m_bis[0].m_startAddr
+    highAddr = funcs[-1].m_bis[-1].m_endAddr
+    with open(cfgFile, "w") as fw:
+        line = "Lowest address: 0x%016X\n" % (lowAddr)
+        fw.write(line)
+        line = "Highest address: 0x%016X\n" % (highAddr)
+        fw.write(line)
+    pass
 
-def assembleFunc(fileName):
+def assembleFunc(fileName, cfgFile):
     blocks = list()
     arrs = None
     line = ""
@@ -298,6 +308,9 @@ def assembleFunc(fileName):
 
     # Recode address in instructions
     # recodeInstructions(blocks)
+
+    # Save address's range to config file
+    saveRangeToConfigFile(funcs, cfgFile)
 
     addAsmFileHeader()
     for i in range(0, len(funcs)):
@@ -330,8 +343,9 @@ def assembleFunc(fileName):
 #
 def main(): 
     fileName = "bblInst.log"
+    cfgFile = "addressRange.cfg"
     # print "Starting..."
-    assembleFunc(fileName)
+    assembleFunc(fileName, cfgFile)
     # print "Finished!"
 
 main()

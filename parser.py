@@ -62,8 +62,8 @@ def addSegmentAtLast(segs, segSize):
     si = SegmInfo()
     si.m_startAddr = segs[-1].m_endAddr
     si.m_endAddr = si.m_startAddr + segSize
-    si.m_name = "Rewrite segment"
-    si.m_className = "Rewrite segment class"
+    si.m_name = ".MySeg"
+    si.m_className = "CODE"
 
     # https://www.hex-rays.com/products/ida/support/idapython_docs/
     # startea - linear address of the start of the segment
@@ -81,6 +81,11 @@ def addSegmentAtLast(segs, segSize):
     byte = 0x90
     for ea in range(si.m_startAddr, si.m_endAddr, 1):
         PatchByte(ea, byte)
+
+    # Set segment's attribute
+    # https://reverseengineering.stackexchange.com/questions/2394/how-can-i-change-the-read-write-execute-flags-on-a-segment-in-ida
+    # idc.SetSegmentAttr(si.m_startAddr, idc.SEGATTR_PERM, idc.SEGPERM_EXEC | idc.SEGPERM_WRITE | idc.SEGPERM_READ)
+    idc.SetSegmentAttr(si.m_startAddr, idc.SEGATTR_PERM, 1 | 2 | 4)
 
     return si
 
@@ -103,20 +108,25 @@ def getAddressAndMachineCode(line):
     return (addr, mcode)
 
 
-def rewriteToBinaryFile(srcFile, startAddr):
+def rewriteToBinaryFile(srcFile, baseAddr):
     addr = None
     mcode = None
     i = 0
     j = 0
     ea = 0
     byte = 0
+    offset = 0
+    isFirstOne = True
     with open(srcFile, "r") as fr:
         for line in fr:
             line = line.strip()
             (addr, mcode) = getAddressAndMachineCode(line)
             if addr == None:
                 continue
-            addr += 0x41960 # For debug
+            if isFirstOne == True:
+                offset = baseAddr - addr
+                isFirstOne = False
+            addr += offset
             print "[%d]Patching address 0x%08X" % (j, addr)
             j += 1
             for i in range(0, len(mcode)):
@@ -140,7 +150,7 @@ def rewriteToBinaryFile(srcFile, startAddr):
 def main():
 
     srcFile = "bblInstEx.log"
-    startAddr = 0
+    baseAddr = 0
     print ""
     print "Patching..."
 
@@ -150,9 +160,10 @@ def main():
 
     segs = getAllSegments()
     si = addSegmentAtLast(segs, 0x10000)
+    baseAddr = si.m_startAddr
 
 
-    rewriteToBinaryFile(srcFile, startAddr)
+    rewriteToBinaryFile(srcFile, baseAddr)
 
     print "Finished."
     print ""

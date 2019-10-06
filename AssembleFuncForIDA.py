@@ -288,7 +288,8 @@ def saveRangeToConfigFile(funcs, cfgFile):
         fw.write(line)
     pass
 
-def assembleFunc(fileName, cfgFile):
+
+def assembleFunc(fileName, cfgFile, funcListFile):
     blocks = list()
     arrs = None
     line = ""
@@ -312,9 +313,12 @@ def assembleFunc(fileName, cfgFile):
     # Save address's range to config file
     saveRangeToConfigFile(funcs, cfgFile)
 
+    flf = open(funcListFile, "w")
+
     addAsmFileHeader()
     for i in range(0, len(funcs)):
         func = funcs[i]
+        flf.write(func.m_funcName + "\n")
         print "%s PROC PUBLIC" % (func.m_funcName)
         for j in range(0, len(func.m_bis)):
             bi = func.m_bis[j]
@@ -335,6 +339,7 @@ def assembleFunc(fileName, cfgFile):
         print "%s ENDP" % (func.m_funcName)
         print ""
     addAsmFileEnder()
+    flf.close()
     pass
 
 #
@@ -344,8 +349,9 @@ def assembleFunc(fileName, cfgFile):
 def main(): 
     fileName = "bblInst.log"
     cfgFile = "addressRange.cfg"
+    funcListFile = "funcList.log"
     # print "Starting..."
-    assembleFunc(fileName, cfgFile)
+    assembleFunc(fileName, cfgFile, funcListFile)
     # print "Finished!"
 
 main()

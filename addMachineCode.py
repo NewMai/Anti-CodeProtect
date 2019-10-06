@@ -46,17 +46,18 @@ def dealwithBranch(curAddr, ins):
     curAddr = int(curAddr, 16)
     destAddr = int(destAddr, 16)
     offset = destAddr - curAddr - curInsSize
-    if offset < 0x100: # short jmp,  2 bytes of machine code
-        if offset < 0x80:
-            ins = "%s $+%d" % (arr[0], offset)
-        else: # offset < 0x100:
-            ins = "%s $-%d" % (arr[0], 0x100 - offset)
+    offset2 = destAddr - curAddr
+    if offset < 0x80 and offset > (-0x80): # short jmp,  2 bytes of machine code
+        if offset > 0:
+            ins = "%s $+%d" % (arr[0], offset2) # $ represents the address of current instruction, not the rip
+        else: # offset < 0:
+            ins = "%s $+%d" % (arr[0], offset2) # e.g.  jz $+-0x11 ==> jz $-0x11
     else:   # long jmp,  2+4 bytes of machine code
         offset -= additionInsSize
-        if offset < 0x80000000:
-            ins = "%s $+%d" % (arr[0], offset)
-        else: # offset < 0x100000000:
-            ins = "%s $-%d" % (arr[0], 0x100 - offset)
+        if offset > 0:
+            ins = "%s $+%d" % (arr[0], offset2)
+        else: # offset < 0:
+            ins = "%s $+%d" % (arr[0], offset2)
     return ins
 
 
@@ -72,10 +73,11 @@ def dealwithCall(curAddr, ins):
     curAddr = int(curAddr, 16)
     destAddr = int(destAddr, 16)
     offset = destAddr - curAddr - curInsSize
-    if offset < 0x80000000:
-        ins = "%s $+%d" % (arr[0], offset)
-    else:
-        ins = "%s $-%d" % (arr[0], 0x100000000 - offset)
+    offset2 = destAddr - curAddr
+    if offset > 0:
+        ins = "%s $+%d" % (arr[0], offset2)
+    else: # offset < 0
+        ins = "%s $+%d" % (arr[0], offset2)
     return ins
 
 

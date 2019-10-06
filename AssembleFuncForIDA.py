@@ -311,12 +311,14 @@ def assembleFunc(fileName):
             for k in range(0, len(block)):
                 line = block[k]
                 ins = line
-                if "|" in line:
-                    ins = "    %s" % (line.split("|")[1])
-                else:
-                    ins = "    %s" % (line)
-                print ins
-                # print "    %s" % (ins)
+
+                # if "|" in line:
+                #     ins = "    %s" % (line.split("|")[1])
+                # else:
+                #     ins = "    %s" % (line)
+                # print ins
+
+                print "    %s" % (ins)
         print "%s ENDP" % (func.m_funcName)
         print ""
     addAsmFileEnder()

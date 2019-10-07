@@ -186,10 +186,13 @@ def getAddressAndMachineCode(line):
 def makeFuncForAllPatchedFunction(funcs, offset):
     for k in range(0, len(funcs)):
         func = funcs[k]
+
         startAddr = func.m_startAddr + offset
         endAddr = func.m_endAddr + offset
 
         ea = startAddr
+
+        print "[%d] function: sub_%x" % (k, ea)
         while ea < endAddr:
             ret = MakeCode(ea)
             if ret == 0:
@@ -228,7 +231,7 @@ def rewriteToBinaryFile(srcFile, baseAddr):
 
     for k in range(0, len(funcs)):
         func = funcs[k]
-        print "Patching function: %s" % (func.m_funcName)
+        print "Patching function: %s, new address: 0x%08x" % (func.m_funcName, func.m_startAddr + offset)
         for j in range(0, len(func.m_inss)):
             line = func.m_inss[j]
             (addr, mcode) = getAddressAndMachineCode(line)

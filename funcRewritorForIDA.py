@@ -207,7 +207,7 @@ def makeFuncForAllPatchedFunction(funcs, offset):
             # return False
         else:
             print "Make function success at 0x%08X, original address 0x%08X" % (startAddr, func.m_startAddr)
-            print "    Function size %d." % (func.m_endAddr - func.m_startAddr)
+            print "    Function size 0x%x, end address 0x%08X" % (func.m_endAddr - func.m_startAddr, endAddr)
     return True
 
 

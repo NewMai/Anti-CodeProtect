@@ -214,10 +214,10 @@ def main():
     if highAddr == 0:
         print "Failed in loading config file"
         return 0
-    codeSize = highAddr - lowAddr + 0x2000
+    codeSize = highAddr - lowAddr + 0x20000
     segs = getAllSegments()
     si = addSegmentAtLast(segs, codeSize)
-    baseAddr = si.m_startAddr + lowAddr % 0x1000
+    baseAddr = si.m_startAddr + lowAddr % 0x10000
 
 
     rewriteToBinaryFile(srcFile, baseAddr)

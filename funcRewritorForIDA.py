@@ -13,6 +13,14 @@ import idautils
 import idaapi
 # import ida_bytes
 
+# One FunctionInfo represents a function
+class FunctionInfo():
+    def __init__(self):
+        self.m_funcName = ""
+        self.m_startAddr = 0
+        self.m_endAddr = 0
+        self.m_inss = list()  # instructions
+
 
 
 g_ErrFile = open("error.log", "a+")
@@ -34,6 +42,62 @@ def testFunc():
     # patch_byte(ea, byte)  # apply in IDA 7.0 and later
     PatchByte(ea, byte)
     print "patched"
+
+# Load one function from file
+def loadOneFunc(fr):
+    fi = FunctionInfo()
+    line = ""
+    while True:
+        line = fr.readline()
+        if line == "":  # End of file
+            break
+        line = line.strip()
+        if len(line) < 6:
+            continue
+        if line.startswith("loc_"):
+            continue  # Ignore label
+        if line.startswith("sub_"):
+            if line.endswith("PUBLIC"):
+                fi.m_funcName = line.split(" ")[0]
+            else:
+                break  # End a function
+            continue
+        # print "Append a line: %s" % (line)
+        fi.m_inss.append(line)
+    # try:
+    #     print "Function size: %d" % (len(fi.m_inss))
+    #     line = fi.m_inss[0]
+    #     print "Start address at line: %s" % (line)
+    #     addr = line.split("|")[0]
+    #     print "Address : %s" % (addr)
+    #     fi.m_startAddr = int(addr, 16)
+    #     line = fi.m_inss[-1]
+    #     print "End address at line: %s" % (line)
+    #     addr = line.split("|")[0]
+    #     print "Address : %s" % (addr)
+    #     fi.m_endAddr = int(addr, 16)
+    #     print "Complete conversion!"
+    # except Exception as e:
+    #     print line
+    #     print "Original Error:%s" % str(e)
+    #     raise ValueError("Convert error!")
+    if len(fi.m_inss) > 0:
+        fi.m_startAddr = int(fi.m_inss[0].split("|")[0], 16)
+        fi.m_endAddr = int(fi.m_inss[-1].split("|")[0], 16)
+    return fi
+
+# Load all function from file
+def loadAllFuncs(funcFile):
+    funcs = list()
+    func = FunctionInfo()
+    with open(funcFile, "r") as fr:
+        while True:
+            func = loadOneFunc(fr)
+            if len(func.m_inss) == 0:
+                break
+            funcs.append(func)
+    print "%d functions loaded!" % (len(funcs))
+    return funcs
 
 
 class SegmInfo():
@@ -118,30 +182,60 @@ def getAddressAndMachineCode(line):
     return (addr, mcode)
 
 
+# Re-make all functions
+def makeFuncForAllPatchedFunction(funcs, offset):
+    for k in range(0, len(funcs)):
+        func = funcs[k]
+        startAddr = func.m_startAddr + offset
+        endAddr = func.m_endAddr + offset
+
+        ea = startAddr
+        while ea < endAddr:
+            ret = MakeCode(ea)
+            if ret == 0:
+                ea += 1
+            else:
+                ea += ret
+
+        ret = DelFunction(startAddr)
+        if ret == 0:
+            print "Delete function failed at 0x%08X, original address 0x%08X" % (startAddr, func.m_startAddr)
+            # return False
+        ret = MakeFunction(startAddr, endAddr)
+        if ret == 0:
+            print "Make function failed at 0x%08X, original address 0x%08X" % (startAddr, func.m_startAddr)
+            # return False
+        else:
+            print "Make function success at 0x%08X, original address 0x%08X" % (startAddr, func.m_startAddr)
+            print "    Function size %d." % (func.m_endAddr - func.m_startAddr)
+    return True
+
+
 def rewriteToBinaryFile(srcFile, baseAddr):
     addr = None
     mcode = None
     i = 0
     j = 0
+    k = 0
     ea = 0
     byte = 0
     offset = 0
     mcodeLen = 0
     isFirstOne = True
-    with open(srcFile, "r") as fr:
-        for line in fr:
-            line = line.strip()
+    funcs = loadAllFuncs(srcFile)
+    func = FunctionInfo()
+    offset = baseAddr - funcs[0].m_startAddr
+
+    for k in range(0, len(funcs)):
+        func = funcs[k]
+        print "Patching function: %s" % (func.m_funcName)
+        for j in range(0, len(func.m_inss)):
+            line = func.m_inss[j]
             (addr, mcode) = getAddressAndMachineCode(line)
-            if addr == None:
-                if line.startswith("sub_") == True:
-                    print "Patching function: %s" % (line.split(" ")[0])
-                continue
-            if isFirstOne == True:
-                offset = baseAddr - addr
-                isFirstOne = False
+            
             addr2 = addr + offset
-            print "[%d]Patching address 0x%08X, original address 0x%08X" % (j, addr2, addr)
-            j += 1
+            # print "[%d]Patching address 0x%08X, original address 0x%08X" % (j, addr2, addr)
+
             mcodeLen = len(mcode)
             for i in range(0, mcodeLen):
                 byte = mcode[i]
@@ -152,17 +246,11 @@ def rewriteToBinaryFile(srcFile, baseAddr):
                     x = Byte(ea)
                     if x == byte:  # The same byte will patch failed
                         continue
-                    print "Error when patching at address 0x%08X with byte 0x%02x" % (ea, byte)
+                    print "Error when patching address 0x%08X with byte 0x%02x" % (ea, byte)
                     return None
-            (addr, mcode) = None, None
-
-            # Re- make code of it
-            ret = MakeCode(addr2)
-            if ret != mcodeLen:
-                print "Make code result not equal to patched-byte's length."
-            # if j > 30:
-            #     break  # Debug
         pass
+    # Re-make all functions
+    ret = makeFuncForAllPatchedFunction(funcs, offset)
     pass
 
 # Load address range config from file

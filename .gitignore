@@ -5,4 +5,10 @@
 *.exe
 test*
 *.log
+*.id*
+*.man
+*.til
+*.obj
+*.nam
+
 

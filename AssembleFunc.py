@@ -1,6 +1,8 @@
 
 import sys
 import os
+import pwn
+pwn.context.arch = "x86_64"  # For 64-bit architecture
 
 
 g_ErrFile = open("error.log", "a+")
@@ -120,19 +122,14 @@ def getOneBlock(f):
             continue
         if "----" in line:     # Reached the end of one block
             break
+        line = line.strip()
         addr = line[0:16]      # Get the start address of this block
         if isFirstInst == 1:
             bi.m_startAddr = int(addr, 16)
             isFirstInst = 0
-        line2 = line[0:-1]
-        # line2 = recodeHex(line[0:-1]) # omit '\n'
-        bi.m_block.append(line2) 
+        bi.m_block.append(line) 
         bi.m_endAddr = int(addr, 16)
     bi.m_label = "loc_%x" % (bi.m_startAddr)   # Default as a label
-    # if True == isFuncPrologue(bi.m_block):
-    #     # We can infer this is a function
-    #     bi.m_label = "sub_%x PROC PUBLIC" % (bi.m_startAddr)
-    #     bi.m_isFunc = True
     return bi
 
 
@@ -159,15 +156,16 @@ def getBlocksFromFile(bblInst_file):
     return blocks
 
 
-def addAsmFileHeader():
+def addAsmFileHeader(fw):
     # For VC++ ml.exe compiler
-    print ".CODE"
-    print ""
+    fw.write(".CODE\n")
+    fw.write("\n")
 
-def addAsmFileEnder():
+
+def addAsmFileEnder(fw):
     # For VC++ ml.exe compiler
-    print "END"
-    print ""
+    fw.write("END\n")
+    fw.write("\n")
 
 # Collect functions calls from ida log file
 def collectFuncCallsFromIdaFile():
@@ -220,6 +218,78 @@ def collectLabels(blocks, calls):
             lbls.add(bi.m_startAddr)
     return lbls
 
+# Add ptr prefix, e.g. dword, qword, byte
+def dealwithPtr(ins):
+    if "ptr" not in ins:
+        return ins
+    oprand1 = ""
+    arr = ins.split(",")
+    if len(arr) > 1 and "ptr" in arr[1]:
+        if "word" not in arr[1] and "byte" not in arr[1]:
+            oprand1 = arr[0].split(" ")[-1]
+            if "r" == oprand1[0:1]:
+                arr[1] = arr[1].replace("ptr", "qword ptr")
+            elif "e" == oprand1[0:1]:
+                arr[1] = arr[1].replace("ptr", "dword ptr")
+            else:
+                pass
+        else:
+            pass
+        ins = "%s,%s" % (arr[0], arr[1])
+        return ins
+    else:
+        # Need to do
+        return ins
+
+# Get instruction's size
+def getInsSize(ins):
+    # Use pwn module in linux
+    mcode = pwn.asm(ins)
+    ret = len(mcode)
+    return ret
+
+# Remove rip addressing by $ addressing
+def dealwithRIP(line):
+    global g_ErrFile
+    if "rip" not in line:
+        return line
+    arr = line.split("|")
+    if len(arr) != 2:
+        return line
+    ins = arr[1]
+    try:
+
+        # e.g. ins : mov qword ptr [rip+0xc059], rax
+        arr1 = ins.split("[")
+        arr2 = arr1[1].split("]")
+        expr = arr2[0]
+        opcode = expr[3:4]
+        value = expr[4:]
+        if opcode == "+":
+            # rip+0xc059 = $+0xc059+insSize
+            insSize = getInsSize(ins)
+            value = int(value, 16)
+            value += insSize
+            expr2 = "[$+0x%x]" % (value)
+            ins = "%s%s%s" % (arr1[0], expr2, arr2[1])
+            line = "%s|%s" % (arr[0], ins)
+        elif opcode == "-":
+            # rip-0xc059 = $-(0xc059-insSize)
+            insSize = getInsSize(ins)
+            value = int(value, 16)
+            value -= insSize
+            expr2 = "[$-0x%x]" % (value)
+            ins = "%s%s%s" % (arr1[0], expr2, arr2[1])
+            line = "%s|%s" % (arr[0], ins)
+        else:
+            errMsg = "Invalide opcode in expression: %s" % (line)
+            g_ErrFile.write(errMsg)
+    except Exception as e:
+        errMsg = "Deal with RIP failed, orginal error message: %s" % (str(e))
+        g_ErrFile.write(errMsg)
+    return line
+
+
 # Normalize the function calls and labels
 # And return a set of functions
 def processFuncCallAndLabels(blocks):
@@ -251,18 +321,24 @@ def processFuncCallAndLabels(blocks):
             funcStatus = 2  # Function body
         for j in range(0, len2):
             line = blocks[i].m_block[j]
+            arr1 = line.split("|")
+            ins = arr1[1]
+            ins = dealwithPtr(ins)
+            line = "%s|%s" % (arr1[0], ins)
             if True == isExplicitFuncCall(line):
                 arr1 = line.split("|")
                 arr2 = arr1[1].split(" ")
                 t = int(arr2[1].strip(), 16)
                 x = "%s|%s sub_%x" % (arr1[0], arr2[0], t)
-                blocks[i].m_block[j] = x
+                line = x
             elif True == isExplicitBranch(line):
                 arr1 = line.split("|")
                 arr2 = arr1[1].split(" ")
                 t = int(arr2[1].strip(), 16)
                 x = "%s|%s loc_%x" % (arr1[0], arr2[0], t)
-                blocks[i].m_block[j] = x
+                line = x
+            # Remove rip addressing by $ addressing
+            blocks[i].m_block[j] = dealwithRIP(line)
         func.m_bis.append(blocks[i])
     return funcs
 
@@ -278,7 +354,7 @@ def recodeInstructions(blocks):
     pass
 
 
-def assembleFunc(fileName):
+def assembleFunc(fileName, outFile):
     blocks = list()
     arrs = None
     line = ""
@@ -299,37 +375,44 @@ def assembleFunc(fileName):
     # Recode address in instructions
     recodeInstructions(blocks)
 
-    addAsmFileHeader()
-    for i in range(0, len(funcs)):
-        func = funcs[i]
-        print "%s PROC PUBLIC" % (func.m_funcName)
-        for j in range(0, len(func.m_bis)):
-            bi = func.m_bis[j]
-            block = bi.m_block
-            if j > 0:
-                 print "%s:" % (bi.m_label)
-            for k in range(0, len(block)):
-                line = block[k]
-                ins = line
-                if "|" in line:
-                    ins = "    %s" % (line.split("|")[1])
-                else:
-                    ins = "    %s" % (line)
-                print ins
-                # print "    %s" % (ins)
-        print "%s ENDP" % (func.m_funcName)
-        print ""
-    addAsmFileEnder()
+    with open(outFile, "w") as fw:
+        addAsmFileHeader(fw)
+        for i in range(0, len(funcs)):
+            func = funcs[i]
+            s = "%s PROC PUBLIC" % (func.m_funcName)
+            fw.write(s + "\n")
+            for j in range(0, len(func.m_bis)):
+                bi = func.m_bis[j]
+                block = bi.m_block
+                if j > 0:
+                    s = "%s:" % (bi.m_label)
+                    fw.write(s+ "\n")
+                for k in range(0, len(block)):
+                    line = block[k]
+                    ins = line
+                    if "|" in line:
+                        ins = "    %s" % (line.split("|")[1])
+                    else:
+                        ins = "    %s" % (line)
+                    fw.write(ins + "\n")
+                    # s = "    %s" % (ins)
+                    # fw.write(s + "\n")
+            s = "%s ENDP" % (func.m_funcName)
+            fw.write(s + "\n")
+            fw.write("\n")
+        addAsmFileEnder(fw)
     pass
 
-#
+
 # 
-# python AssembleFunc.py > asm.asm
+# Run in linux with pwntool installed.
+# python AssembleFunc.py
 #
 def main(): 
     fileName = "bblInst.log"
+    outFile = "funcsForML.asm"
     # print "Starting..."
-    assembleFunc(fileName)
+    assembleFunc(fileName, outFile)
     # print "Finished!"
 
 main()

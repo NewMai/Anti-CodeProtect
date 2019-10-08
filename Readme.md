@@ -42,6 +42,17 @@ run `AssembleFunc.py` script in windows with [keystone](http://www.keystone-engi
 ```bash
 python AssembleFunc.py
 ```
+Note: Install `keystone` in linux: 
+```bash
+git clone https://github.com/keystone-engine/keystone.git
+cd keystone
+sudo apt-get install cmake
+mkdir build
+cd build
+../make-lib.sh
+sudo ldconfig
+sudo pip2 install keystone-engine
+```
 
 **step2:**
 

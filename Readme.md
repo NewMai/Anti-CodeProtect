@@ -38,7 +38,7 @@ This script will create a new section in IDA pro and write the code (or instruct
 
 **step1:**
 
-run `AssembleFunc.py` script in linux bash shell to generate a assembly file: `funcsForML.asm`:
+run `AssembleFunc.py` script in windows with [keystone](http://www.keystone-engine.org/) installed to generate a assembly file: `funcsForML.asm`:
 ```bash
 python AssembleFunc.py
 ```

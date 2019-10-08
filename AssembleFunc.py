@@ -136,6 +136,7 @@ def getOneBlock(f):
 # Get all block from file
 # Return a block list, each item comtains a basic block and its starting address
 def getBlocksFromFile(bblInst_file):
+    global g_ErrFile
     #fileName = "bblInst.log"
     fileName = bblInst_file
     blocks = list()
@@ -149,6 +150,8 @@ def getBlocksFromFile(bblInst_file):
             if len(bi.m_block) <= 0 or bi.m_startAddr == "":    # Reached the end
                 break
             if bi.m_startAddr in blkSet:
+                s = "Found a another block in address: 0x%x" % (bi.m_startAddr)
+                g_ErrFile.write(s + "\r\n")
                 continue   # Ignore this repeated block
             blkSet.add(bi.m_startAddr)
             blocks.append(bi)
@@ -166,6 +169,10 @@ def addAsmFileEnder(fw):
     # For VC++ ml.exe compiler
     fw.write("END\n")
     fw.write("\n")
+
+def getExternFunc(addr):
+    s = "EXTERN sub_%x:proc" % addr
+    return s
 
 # Collect functions calls from ida log file
 def collectFuncCallsFromIdaFile():
@@ -188,7 +195,7 @@ def collectFuncCallsFromIdaFile():
 def collectFuncCalls(blocks):
     global g_ErrFile
     calls = set()
-    # calls = collectFuncCallsFromIdaFile()
+    calls = collectFuncCallsFromIdaFile()
     line = ""
     data = BlockInfo()
     arrs = list()
@@ -302,6 +309,7 @@ def processFuncCallAndLabels(blocks):
     line = ""
     len2 = 0
     calls = collectFuncCalls(blocks)
+    exCalls = set()
     lbls = collectLabels(blocks, calls)
     for i in range(0, len1):
         len2 = len(blocks[i].m_block)
@@ -329,6 +337,9 @@ def processFuncCallAndLabels(blocks):
                 arr1 = line.split("|")
                 arr2 = arr1[1].split(" ")
                 t = int(arr2[1].strip(), 16)
+                if t not in calls:
+                    if t not in exCalls:
+                        exCalls.add(t)
                 x = "%s|%s sub_%x" % (arr1[0], arr2[0], t)
                 line = x
             elif True == isExplicitBranch(line):
@@ -340,7 +351,9 @@ def processFuncCallAndLabels(blocks):
             # Remove rip addressing by $ addressing
             blocks[i].m_block[j] = dealwithRIP(line)
         func.m_bis.append(blocks[i])
-    return funcs
+    if len(func.m_bis) > 0:
+        funcs.append(func)
+    return (funcs, exCalls)
 
 # Recode all the instructions
 def recodeInstructions(blocks):
@@ -354,6 +367,7 @@ def recodeInstructions(blocks):
     pass
 
 # Process all nop instructions
+# nop xxx -> nop
 def processNopInstructions(blocks):
     len1 = len(blocks)
     line = ""
@@ -393,7 +407,7 @@ def assembleFunc(fileName, outFile):
     blocks.sort(key = lambda b:b.m_startAddr)
 
     # Normalize function call
-    funcs = processFuncCallAndLabels(blocks)
+    (funcs, exCalls) = processFuncCallAndLabels(blocks)
 
     # Recode address in instructions
     recodeInstructions(blocks)
@@ -403,6 +417,12 @@ def assembleFunc(fileName, outFile):
 
     with open(outFile, "w") as fw:
         addAsmFileHeader(fw)
+
+        # Process extern function
+        for call in exCalls:
+            funcDecl = getExternFunc(call)
+            fw.write(funcDecl + "\n")
+
         for i in range(0, len(funcs)):
             func = funcs[i]
             resBI = list()
@@ -414,7 +434,7 @@ def assembleFunc(fileName, outFile):
                 block = bi.m_block
                 if j > 0:
                     s = "%s:" % (bi.m_label)
-                    fw.write(s+ "\n")
+                    fw.write(s + "\n")
                 for k in range(0, len(block)):
                     line = block[k]
                     if "loc_" in line:

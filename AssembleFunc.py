@@ -1,8 +1,13 @@
 
 import sys
 import os
-import pwn
-pwn.context.arch = "x86_64"  # For 64-bit architecture
+# import pwn
+# pwn.context.arch = "x86_64"  # For 64-bit architecture
+
+# from keystone import *
+import keystone
+g_ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_64)  # Initialize engine in X86-64bit mode
+
 
 
 g_ErrFile = open("error.log", "a+")
@@ -251,7 +256,11 @@ def dealwithPtr(ins):
 # Get instruction's size
 def getInsSize(ins):
     # Use pwn module in linux
-    mcode = pwn.asm(ins)
+    # mcode = pwn.asm(ins)
+
+    # Use keystone in windows
+    global g_ks
+    mcode, count = g_ks.asm(ins)
     ret = len(mcode)
     return ret
 
@@ -468,6 +477,7 @@ def assembleFunc(fileName, outFile):
 
 # 
 # Run in linux with pwntool installed.
+# Use keystone in windows
 # python AssembleFunc.py
 #
 def main(): 

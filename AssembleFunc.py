@@ -353,6 +353,28 @@ def recodeInstructions(blocks):
             blocks[i].m_block[j] = recodeHex(blocks[i].m_block[j])
     pass
 
+# Process all nop instructions
+def processNopInstructions(blocks):
+    len1 = len(blocks)
+    line = ""
+    len2 = 0
+    for i in range(0, len1):
+        len2 = len(blocks[i].m_block)
+        for j in range(0, len2):
+            line = blocks[i].m_block[j]
+            if "nop" in line:
+                arr = line.split("|")
+                blocks[i].m_block[j] = "%s|nop" % (arr[0])
+    pass
+
+# Collect local label in a function
+def collectLocalLabels(func):
+    lbls = set()
+    bis = func.m_bis
+    for bi in bis:
+        lbls.add(bi.m_label)
+    return lbls
+
 
 def assembleFunc(fileName, outFile):
     blocks = list()
@@ -361,6 +383,7 @@ def assembleFunc(fileName, outFile):
     tline = ""
     i = 0
     j = 0
+    lbls = set()
     preFuncName = ""
 
     # Get all block from files
@@ -375,12 +398,17 @@ def assembleFunc(fileName, outFile):
     # Recode address in instructions
     recodeInstructions(blocks)
 
+    # Process all nop instructions
+    processNopInstructions(blocks)
+
     with open(outFile, "w") as fw:
         addAsmFileHeader(fw)
         for i in range(0, len(funcs)):
             func = funcs[i]
+            resBI = list()
             s = "%s PROC PUBLIC" % (func.m_funcName)
             fw.write(s + "\n")
+            lbls = collectLocalLabels(func)
             for j in range(0, len(func.m_bis)):
                 bi = func.m_bis[j]
                 block = bi.m_block
@@ -389,6 +417,14 @@ def assembleFunc(fileName, outFile):
                     fw.write(s+ "\n")
                 for k in range(0, len(block)):
                     line = block[k]
+                    if "loc_" in line:
+                        lbl = line.split("|")[1].split(" ")[1]
+                        if lbl not in lbls:
+                            lbls.add(lbl)
+                            bi = BlockInfo()
+                            bi.m_label = lbl
+                            bi.m_block.append("ret")
+                            resBI.append(bi)
                     ins = line
                     if "|" in line:
                         ins = "    %s" % (line.split("|")[1])
@@ -397,6 +433,12 @@ def assembleFunc(fileName, outFile):
                     fw.write(ins + "\n")
                     # s = "    %s" % (ins)
                     # fw.write(s + "\n")
+            if len(resBI) > 0:
+                # Dealwith unknown labels
+                for k in range(0, len(resBI)):
+                    s = "%s:" % (resBI[k].m_label)
+                    fw.write(s + "\n")
+                    fw.write("    ret\n")
             s = "%s ENDP" % (func.m_funcName)
             fw.write(s + "\n")
             fw.write("\n")

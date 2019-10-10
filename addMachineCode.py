@@ -12,7 +12,7 @@ g_ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_64)  # Initialize engi
 
 
 g_ErrLog = open("error.log", "a+")
-g_ErrLog.write("\r\n")
+g_ErrLog.write("\n")
 
 
 
@@ -89,6 +89,7 @@ def dealwithCall(curAddr, ins):
 
 def getMachineCode(line):
     global g_ks
+    global g_ErrLog
     arr = line.split("|")
     addr = arr[0]
     ins = arr[1].lower()
@@ -103,12 +104,26 @@ def getMachineCode(line):
             # For the reason that we initialize all code into nop instruction at 
             #    the creation of a section
             mcode = [0x90]
+        elif "bt" in ins:
+            # Process btc instruction for keystone, e.g. btc eax, 0x99   or bt bx, 0x83
+            try:
+                mcode, count = g_ks.asm(ins)
+            except:
+                # Construct a new instruction
+                i = ins.find("0x")
+                value = int(ins[i:], 16)
+                ins = "%s 0x11" % ins[0:i]
+                mcode, count = g_ks.asm(ins)
+                mcode[-1] = value
         else:
             # mcode = pwn.asm(ins)
             mcode, count = g_ks.asm(ins)
     except Exception as e:
-        print str(e)
-        raise RuntimeError("Unknow instruction for: %s" % ins)
+        s = "Error to assemble instruction: [%s], instruction [%s] will be changed to [nop]. Original error message: %s" % (ins, ins, str(e))
+        print s
+        g_ErrLog.write(s + "\n")
+        # raise RuntimeError("Unknow instruction for: %s" % ins)
+        mcode = [0x90]
     ret = ""
     for i in range(0, len(mcode)):
         x = mcode[i]

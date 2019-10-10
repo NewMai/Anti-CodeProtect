@@ -150,15 +150,23 @@ def addSegmentAtLast(segs, segSize):
     byte = 0x90
     for ea in range(si.m_startAddr, si.m_endAddr, 1):
         PatchByte(ea, byte)
-        ret = MakeCode(ea)
-        if ret == 0:
-            print "Make code failed at this section"
-            return 0
+        # ret = MakeCode(ea)
+        # if ret == 0:
+        #     print "Make code failed at this section"
+        #     return 0
 
     # Set segment's attribute
     # https://reverseengineering.stackexchange.com/questions/2394/how-can-i-change-the-read-write-execute-flags-on-a-segment-in-ida
     # idc.SetSegmentAttr(si.m_startAddr, idc.SEGATTR_PERM, idc.SEGPERM_EXEC | idc.SEGPERM_WRITE | idc.SEGPERM_READ)
-    idc.SetSegmentAttr(si.m_startAddr, idc.SEGATTR_PERM, 1 | 2 | 4)
+    ret = idc.SetSegmentAttr(si.m_startAddr, idc.SEGATTR_PERM, 1 | 2 | 4)
+    if ret == 0:
+        print "Set segment attribute failed"
+    ret = idc.SetSegClass(si.m_startAddr, si.m_className)
+    if ret == 0:
+        print "Set segment class failed"
+    ret = idc.SetSegmentType(si.m_startAddr,  idc.SEG_CODE)
+    if ret == 0:
+        print "Set segment type to code failed"
 
     return si
 
@@ -214,7 +222,7 @@ def makeFuncForAllPatchedFunction(funcs, offset):
     return True
 
 
-def rewriteToBinaryFile(srcFile, baseAddr):
+def rewriteToBinaryFile(funcs, baseAddr):
     addr = None
     mcode = None
     i = 0
@@ -225,7 +233,6 @@ def rewriteToBinaryFile(srcFile, baseAddr):
     offset = 0
     mcodeLen = 0
     isFirstOne = True
-    funcs = loadAllFuncs(srcFile)
     func = FunctionInfo()
     offset = baseAddr - funcs[0].m_startAddr
 
@@ -290,6 +297,23 @@ def makeCodeAgain(si):
             ea += ret
     pass
 
+# Prepare
+def prepareForWritor(srcFile):
+
+    funcs = loadAllFuncs(srcFile)
+
+    lowAddr = funcs[0].m_startAddr
+    highAddr = funcs[-1].m_endAddr
+
+    codeSize = highAddr - lowAddr + 0x20000
+    segs = getAllSegments()
+
+    # codeSize = 0x1000 # Debug
+    si = addSegmentAtLast(segs, codeSize)
+    baseAddr = si.m_startAddr + lowAddr % 0x10000
+
+    return (funcs, baseAddr, si)
+
 def main():
 
     srcFile = "funcsEx.asm"
@@ -300,18 +324,10 @@ def main():
 
     # testFunc()
 
+    # Prepare
+    (funcs, baseAddr, si) = prepareForWritor(srcFile)
 
-    (lowAddr, highAddr) = loadConfigFromFile(cfgFile)
-    if highAddr == 0:
-        print "Failed in loading config file"
-        return 0
-    codeSize = highAddr - lowAddr + 0x20000
-    segs = getAllSegments()
-    si = addSegmentAtLast(segs, codeSize)
-    baseAddr = si.m_startAddr + lowAddr % 0x10000
-
-
-    rewriteToBinaryFile(srcFile, baseAddr)
+    rewriteToBinaryFile(funcs, baseAddr)
     makeCodeAgain(si)
 
     print "Finished."

@@ -159,15 +159,17 @@ def getBlocksFromFile(bblInst_file):
     return blocks
 
 
-def addAsmFileHeader():
+def addAsmFileHeader(fw):
     # For VC++ ml.exe compiler
-    print ".CODE"
-    print ""
+    fw.write(".CODE\n")
+    fw.write("\n")
 
-def addAsmFileEnder():
+
+def addAsmFileEnder(fw):
     # For VC++ ml.exe compiler
-    print "END"
-    print ""
+    fw.write("END\n")
+    fw.write("\n")
+
 
 # Collect functions calls from ida log file
 def collectFuncCallsFromIdaFile():
@@ -289,7 +291,7 @@ def saveRangeToConfigFile(funcs, cfgFile):
     pass
 
 
-def assembleFunc(fileName, cfgFile, funcListFile):
+def assembleFunc(fileName, cfgFile, funcListFile, outFile):
     blocks = list()
     arrs = None
     line = ""
@@ -315,43 +317,49 @@ def assembleFunc(fileName, cfgFile, funcListFile):
 
     flf = open(funcListFile, "w")
 
-    addAsmFileHeader()
-    for i in range(0, len(funcs)):
-        func = funcs[i]
-        flf.write(func.m_funcName + "\n")
-        print "%s PROC PUBLIC" % (func.m_funcName)
-        for j in range(0, len(func.m_bis)):
-            bi = func.m_bis[j]
-            block = bi.m_block
-            if j > 0:
-                 print "%s:" % (bi.m_label)
-            for k in range(0, len(block)):
-                line = block[k]
-                ins = line
+    with open(outFile, "w") as fw:
+        addAsmFileHeader(fw)
+        for i in range(0, len(funcs)):
+            func = funcs[i]
+            flf.write(func.m_funcName + "\n")
+            s = "%s PROC PUBLIC" % (func.m_funcName)
+            fw.write(s + "\n")
+            for j in range(0, len(func.m_bis)):
+                bi = func.m_bis[j]
+                block = bi.m_block
+                if j > 0:
+                    s = "%s:" % (bi.m_label)
+                    fw.write(s + "\n")
+                for k in range(0, len(block)):
+                    line = block[k]
+                    ins = line
 
-                # if "|" in line:
-                #     ins = "    %s" % (line.split("|")[1])
-                # else:
-                #     ins = "    %s" % (line)
-                # print ins
+                    # if "|" in line:
+                    #     s = "    %s" % (line.split("|")[1])
+                    # else:
+                    #     s = "    %s" % (line)
+                    # fw.write(s + "\n")
 
-                print "    %s" % (ins)
-        print "%s ENDP" % (func.m_funcName)
-        print ""
-    addAsmFileEnder()
+                    s = "    %s" % (ins)
+                    fw.write(s + "\n")
+            s = "%s ENDP" % (func.m_funcName)
+            fw.write(s + "\n")
+            fw.write("\n")
+        addAsmFileEnder(fw)
     flf.close()
     pass
 
 #
 # 
-# python AssembleFuncForIDA.py > funcs.asm
+# python AssembleFuncForIDA.py
 #
 def main(): 
     fileName = "bblInst.log"
     cfgFile = "addressRange.cfg"
     funcListFile = "funcList.log"
+    outFile = "funcs.asm"
     # print "Starting..."
-    assembleFunc(fileName, cfgFile, funcListFile)
+    assembleFunc(fileName, cfgFile, funcListFile, outFile)
     # print "Finished!"
 
 main()

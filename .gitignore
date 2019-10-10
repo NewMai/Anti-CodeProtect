@@ -1,6 +1,5 @@
 
 *.asm
-*/
 .vscode/
 *.exe
 test*
@@ -10,5 +9,6 @@ test*
 *.til
 *.obj
 *.nam
+*.dll
 
 

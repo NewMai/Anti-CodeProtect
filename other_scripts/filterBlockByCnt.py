@@ -85,8 +85,9 @@ def outputBlocks(outFile, remBlocks):
 #
 
 def main():
-    bblInst_file = "../bblInst.log"
-    outFile = "filterBlockByCount.log"
+    prefix = "../"
+    bblInst_file = prefix + "bblInst.log"
+    outFile = prefix + "filterBlockByCount.log"
     minCount = 15
     remBlocks = list()
 

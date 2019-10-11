@@ -10,5 +10,5 @@ test*
 *.obj
 *.nam
 *.dll
-
-
+*.i64
+Packer/

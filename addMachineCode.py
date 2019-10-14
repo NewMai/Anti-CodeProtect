@@ -54,13 +54,13 @@ def dealwithBranch(curAddr, ins):
     offset = destAddr - curAddr - curInsSize
     offset2 = destAddr - curAddr
     if offset < 0x80 and offset > (-0x80): # short jmp,  2 bytes of machine code
-        if offset > 0:
+        if offset >= 0:
             ins = "%s 0x%x" % (arr[0], offset2) # $ represents the address of current instruction, not the rip
         else: # offset < 0:
             ins = "%s -0x%x" % (arr[0], 0-offset2) #
     else:   # long jmp,  2+4 bytes of machine code
         offset -= additionInsSize
-        if offset > 0:
+        if offset >= 0:
             ins = "%s 0x%x" % (arr[0], offset2)
         else: # offset < 0:
             ins = "%s -0x%x" % (arr[0], 0-offset2)
